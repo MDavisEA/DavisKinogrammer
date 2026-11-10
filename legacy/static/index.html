@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sprint Cropper</title>
+  <meta name="description" content="Pull pose frames of an athlete out of a sprint video and lay them out in a phase grid.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23ff5a1f'/><path d='M9 22l5-12h4l-2 5h5l-8 9 2-6z' fill='white'/></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8"/><path d="M9 22l5-12h4l-2 5h5l-8 9 2-6z"/></svg>
+      </span>
+      <div>
+        <h1>Sprint Cropper</h1>
+        <p class="tagline">Turn race footage into a phase-by-phase pose grid</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <label class="btn btn-ghost" for="fileInput">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0l-5 5m5-5l5 5M4 20h16"/></svg>
+        <span>Upload video</span>
+      </label>
+      <input id="fileInput" type="file" accept="video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm" hidden>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ======================= Viewer ======================= -->
+    <section class="card viewer-card">
+      <div class="card-head">
+        <div>
+          <h2>Video</h2>
+          <p class="muted" id="videoName">No video loaded</p>
+        </div>
+        <span class="pill" id="detectPill" hidden>Detecting…</span>
+      </div>
+
+      <div class="stage" id="stage">
+        <div class="dropzone" id="dropzone">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 10l5-3v10l-5-3M4 7h11v10H4z"/></svg>
+          <p class="dz-title">Drop a sprint video here</p>
+          <p class="muted">or <label for="fileInput" class="link">browse your files</label> — MP4, MOV, AVI, MKV, WebM</p>
+        </div>
+        <div class="frame-wrap" id="frameWrap" hidden>
+          <img id="frameImg" alt="Current video frame" draggable="false">
+          <canvas id="overlay"></canvas>
+        </div>
+        <div class="uploading" id="uploading" hidden>
+          <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+          <p id="uploadText">Uploading…</p>
+        </div>
+      </div>
+
+      <div class="controls" id="controls" aria-disabled="true">
+        <input type="range" id="scrubber" min="0" max="0" value="0" aria-label="Frame">
+        <div class="controls-row">
+          <div class="stepper" role="group" aria-label="Step through frames">
+            <button class="btn btn-step" data-step="-60" title="Back 60 frames (↓)">−60</button>
+            <button class="btn btn-step" data-step="-10" title="Back 10 frames (Shift + ←)">−10</button>
+            <button class="btn btn-step" data-step="-1"  title="Previous frame (←)">−1</button>
+            <div class="readout">
+              <span class="readout-frame">Frame <b id="frameNum">0</b> / <span id="frameTotal">0</span></span>
+              <span class="readout-time" id="frameTime">0.000 s</span>
+            </div>
+            <button class="btn btn-step" data-step="1"  title="Next frame (→)">+1</button>
+            <button class="btn btn-step" data-step="10" title="Forward 10 frames (Shift + →)">+10</button>
+            <button class="btn btn-step" data-step="60" title="Forward 60 frames (↑)">+60</button>
+          </div>
+          <div class="actions">
+            <button class="btn btn-secondary" id="nextPersonBtn" title="Cycle to the next detected person (N)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0"/></svg>
+              Next person
+            </button>
+            <button class="btn btn-primary" id="addBtn" title="Add the selected athlete to the board (Enter)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Add to board
+            </button>
+          </div>
+        </div>
+        <p class="hint">
+          Click a box to choose the athlete, or drag to draw your own.
+          <span class="keys"><kbd>←</kbd><kbd>→</kbd> 1 frame · <kbd>Shift</kbd> 10 · <kbd>↑</kbd><kbd>↓</kbd> 60 · <kbd>Enter</kbd> add · <kbd>N</kbd> next person · <kbd>Backspace</kbd> remove</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- ======================= Board ======================= -->
+    <section class="card board-card">
+      <div class="card-head">
+        <div>
+          <h2>Board</h2>
+          <p class="muted"><span id="filledCount">0</span> of 10 frames · click a slot to fill it next</p>
+        </div>
+        <div class="board-actions">
+          <button class="btn btn-ghost" id="resetBtn">Reset</button>
+          <button class="btn btn-primary" id="downloadBtn" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
+            Download grid
+          </button>
+        </div>
+      </div>
+
+      <input class="title-input" id="boardTitle" placeholder="Grid title (optional) — e.g. Jordan · 60 m · 9 Nov" maxlength="80">
+
+      <div class="board" id="board">
+        <!-- phase label inputs + 10 slots are rendered by app.js -->
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

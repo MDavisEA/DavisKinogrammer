@@ -1,0 +1,9 @@
+pip install opencv-python
+pip install ultralytics
+pip install numpy
+pip install imageio
+pip install pillow
+pip install tkinter
+pip install pynput
+pip install multiprocessing
+pip install screeninfo
