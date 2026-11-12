@@ -25,6 +25,8 @@ const el = {
   addBtn: $("addBtn"), nextPersonBtn: $("nextPersonBtn"),
   board: $("board"), boardTitle: $("boardTitle"), filledCount: $("filledCount"),
   resetBtn: $("resetBtn"), downloadBtn: $("downloadBtn"), toast: $("toast"),
+  phaseToggle: $("phaseToggle"), slotTotal: $("slotTotal"),
+  refInclude: $("refInclude"), downloadLabel: $("downloadLabel"),
   helpDialog: $("helpDialog"), helpLink: $("helpLink"), helpLead: $("helpLead"), helpDetail: $("helpDetail"),
 };
 
@@ -42,6 +44,7 @@ const state = {
   active: 0,              // slot the next crop goes into
   trail: [],              // recent crops [{frame, box}] used to predict the athlete's position
   phases: [...DEFAULT_PHASES],
+  phaseOn: Array(COLS).fill(true), // which phase columns are on the board and in the download
 };
 
 /* --------------------------------------------------------------------- utils */
@@ -540,10 +543,12 @@ async function addToBoard() {
 }
 el.addBtn.addEventListener("click", addToBoard);
 
+const slotOn = (i) => state.phaseOn[i % COLS];
+
 function nextEmptySlot(from) {
   for (let k = 1; k <= SLOT_COUNT; k++) {
-    const i = (from + k) % SLOT_COUNT;
-    if (!state.slots[i]) return i;
+    const i = (from + k + SLOT_COUNT) % SLOT_COUNT;
+    if (slotOn(i) && !state.slots[i]) return i;
   }
   return -1;
 }
@@ -556,7 +561,7 @@ function removeSlot(i) {
 
 function removeCurrent() {
   if (state.active >= 0 && state.slots[state.active]) return removeSlot(state.active);
-  for (let i = SLOT_COUNT - 1; i >= 0; i--) if (state.slots[i]) return removeSlot(i);
+  for (let i = SLOT_COUNT - 1; i >= 0; i--) if (slotOn(i) && state.slots[i]) return removeSlot(i);
 }
 
 /* ====================================================================== board */
@@ -568,7 +573,7 @@ function buildBoard() {
     input.value = name;
     input.maxLength = 24;
     input.setAttribute("aria-label", `Phase ${i + 1} name`);
-    input.addEventListener("input", () => { state.phases[i] = input.value; store.set("phases", state.phases); });
+    input.addEventListener("input", () => { state.phases[i] = input.value; store.set("phases", state.phases); renderPhaseToggle(); });
     el.board.appendChild(input);
   });
   for (let i = 0; i < SLOT_COUNT; i++) {
@@ -590,8 +595,12 @@ function buildBoard() {
 }
 
 function renderBoard() {
+  const on = state.phaseOn.filter(Boolean).length;
+  el.board.style.gridTemplateColumns = `repeat(${on}, minmax(0, 1fr))`;
+  el.board.querySelectorAll(".phase-input").forEach((inp, j) => inp.classList.toggle("off", !state.phaseOn[j]));
   const slots = el.board.querySelectorAll(".slot");
   slots.forEach((s, i) => {
+    s.classList.toggle("off", !slotOn(i));
     const data = state.slots[i];
     s.classList.toggle("filled", !!data);
     s.classList.toggle("active", i === state.active);
@@ -611,15 +620,44 @@ function renderBoard() {
       s.dataset.src = "";
     }
   });
-  const filled = state.slots.filter(Boolean).length;
+  const filled = state.slots.filter((d, i) => d && slotOn(i)).length;
   el.filledCount.textContent = filled;
+  el.slotTotal.textContent = on * (SLOT_COUNT / COLS);
   el.downloadBtn.disabled = filled === 0;
+}
+
+// Phase on/off buttons: turning a phase off hides its column (frames in it are kept, just not shown or exported).
+function renderPhaseToggle() {
+  if (el.phaseToggle.children.length !== COLS) {
+    el.phaseToggle.innerHTML = "";
+    for (let j = 0; j < COLS; j++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "phase-chip";
+      b.addEventListener("click", () => togglePhase(j));
+      el.phaseToggle.appendChild(b);
+    }
+  }
+  [...el.phaseToggle.children].forEach((b, j) => {
+    b.textContent = state.phases[j].trim() || "Phase " + (j + 1);
+    b.setAttribute("aria-pressed", String(state.phaseOn[j]));
+    b.title = state.phaseOn[j] ? "Click to leave this phase out" : "Click to include this phase";
+  });
+}
+
+function togglePhase(j) {
+  if (state.phaseOn[j] && state.phaseOn.filter(Boolean).length === 1) { toast("Keep at least one phase."); return; }
+  state.phaseOn[j] = !state.phaseOn[j];
+  store.set("phaseOn", state.phaseOn);
+  if (state.active < 0 || !slotOn(state.active)) state.active = nextEmptySlot(-1);
+  renderPhaseToggle();
+  renderBoard();
 }
 
 el.resetBtn.addEventListener("click", () => {
   if (state.slots.some(Boolean) && !confirm("Clear all frames from the board?")) return;
   state.slots = Array(SLOT_COUNT).fill(null);
-  state.active = 0;
+  state.active = nextEmptySlot(-1);
   state.trail = [];
   renderBoard();
 });
@@ -634,10 +672,32 @@ async function downloadGrid() {
   const TW = 600, TH = Math.round(TW / TILE_ASPECT), GAP = 10, PAD = 40;
   const title = el.boardTitle.value.trim();
   const TITLE_H = title ? 64 : 0, LABEL_H = 54;
-  const rows = SLOT_COUNT / COLS;
-  const W = PAD * 2 + COLS * TW + (COLS - 1) * GAP;
-  const H = PAD + TITLE_H + LABEL_H + rows * TH + (rows - 1) * GAP + PAD;
+  // Only the phases that are switched on, and only rows with at least one frame in them.
+  const usedCols = [];
+  for (let j = 0; j < COLS; j++) if (state.phaseOn[j]) usedCols.push(j);
+  const usedRows = [];
+  for (let r = 0; r < SLOT_COUNT / COLS; r++) {
+    if (usedCols.some((j) => state.slots[r * COLS + j])) usedRows.push(r);
+  }
+  const cols = usedCols.length, rows = Math.max(1, usedRows.length);
+  const W = PAD * 2 + cols * TW + (cols - 1) * GAP;
+  const GRID_H = PAD + TITLE_H + LABEL_H + rows * TH + (rows - 1) * GAP;
   const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+
+  // Optional reference kinogram: the same phase columns, cut from the 5-column picture and lined up under the grid.
+  let ref = null, REF_LABEL_H = 0, REF_H = 0;
+  const REF_GAP = 48;
+  if (el.refInclude.checked) {
+    try {
+      ref = await loadImage("reference/" + refView + ".webp");
+      REF_LABEL_H = 44;
+      REF_H = Math.round(TW * ref.naturalHeight / (ref.naturalWidth / COLS));
+    } catch (err) {
+      toast("Couldn't load the reference picture, downloading the grid without it.", true);
+      ref = null;
+    }
+  }
+  const H = GRID_H + (ref ? REF_GAP + REF_LABEL_H + REF_H : 0) + PAD;
 
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
@@ -649,29 +709,44 @@ async function downloadGrid() {
     ctx.fillStyle = "#111418";
     ctx.font = `700 36px ${FONT}`;
     ctx.textBaseline = "alphabetic";
-    ctx.fillText(title, PAD, PAD + 38);
+    ctx.fillText(title, PAD, PAD + 38, W - 2 * PAD);
   }
 
   const top = PAD + TITLE_H;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  for (let j = 0; j < COLS; j++) {
-    const x = PAD + j * (TW + GAP);
+  usedCols.forEach((j, k) => {
+    const x = PAD + k * (TW + GAP);
     ctx.fillStyle = "#111418";
     ctx.font = `650 24px ${FONT}`;
     ctx.fillText(state.phases[j] || "", x + TW / 2, top + LABEL_H / 2 - 6, TW - 16);
     ctx.fillStyle = "#ff5a1f";
     ctx.fillRect(x, top + LABEL_H - 10, TW, 4);
-  }
+  });
   ctx.textAlign = "left";
 
   const imgs = await Promise.all(state.slots.map((s) => (s ? loadImage(s.src) : null)));
   imgs.forEach((img, i) => {
-    const r = Math.floor(i / COLS), j = i % COLS;
-    const x = PAD + j * (TW + GAP), y = top + LABEL_H + r * (TH + GAP);
-    if (img) ctx.drawImage(img, x, y, TW, TH);
-    else { ctx.fillStyle = "#eef0f3"; ctx.fillRect(x, y, TW, TH); }
+    const r = usedRows.indexOf(Math.floor(i / COLS)), k = usedCols.indexOf(i % COLS);
+    if (!img || r < 0 || k < 0) return; // empty slots stay blank so the filled ones keep their phase column
+    const x = PAD + k * (TW + GAP), y = top + LABEL_H + r * (TH + GAP);
+    ctx.drawImage(img, x, y, TW, TH);
   });
+
+  if (ref) {
+    const y = GRID_H + REF_GAP;
+    ctx.fillStyle = "#ff5a1f";
+    ctx.fillRect(PAD, y - REF_GAP / 2, W - 2 * PAD, 2);
+    ctx.fillStyle = "#111418";
+    ctx.font = `650 26px ${FONT}`;
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("Reference: " + REF_ALT[refView], PAD, y + 28, W - 2 * PAD);
+    ctx.imageSmoothingQuality = "high";
+    const cw = ref.naturalWidth / COLS;
+    usedCols.forEach((j, k) => {
+      ctx.drawImage(ref, j * cw, 0, cw, ref.naturalHeight, PAD + k * (TW + GAP), y + REF_LABEL_H, TW, REF_H);
+    });
+  }
 
   const name = (title || "sprint-grid").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "sprint-grid";
   c.toBlob((blob) => {
@@ -697,7 +772,7 @@ window.addEventListener("keydown", (e) => {
     case "ArrowLeft":  goTo(state.frame - step); break;
     case "ArrowUp":    goTo(state.frame + 60); break;
     case "ArrowDown":  goTo(state.frame - 60); break;
-    case "Enter":      if (t.matches("button")) return; addToBoard(); break;
+    case "Enter":      if (t.matches("button, summary")) return; addToBoard(); break;
     case "n": case "N": nextPerson(); break;
     case "Backspace": case "Delete": removeCurrent(); break;
     default: return;
@@ -705,7 +780,44 @@ window.addEventListener("keydown", (e) => {
   e.preventDefault();
 });
 
+/* ================================================================= reference */
+// Example kinogram to compare against: both legs, or one leg's stride at a time.
+const REF_ALT = {
+  "both-legs": "both legs",
+  "left-leg": "left-leg toe-off",
+  "right-leg": "right-leg toe-off",
+};
+const refImg = $("refImg");
+const refBtns = document.querySelectorAll(".ref-btn");
+let refView = "both-legs";
+function showReference(key) {
+  if (!REF_ALT[key]) key = "both-legs";
+  refView = key;
+  refImg.src = "reference/" + key + ".webp";
+  refImg.alt = "Reference kinogram of an elite sprinter at toe-off, MVP, strike, touch-down and full-support, " + REF_ALT[key];
+  refBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.ref === key)));
+  store.set("refView", key);
+}
+refBtns.forEach((b) => b.addEventListener("click", () => showReference(b.dataset.ref)));
+showReference(store.get("refView", "both-legs"));
+const refPanel = $("reference");
+refPanel.open = store.get("refOpen", false);
+refPanel.addEventListener("toggle", () => store.set("refOpen", refPanel.open));
+
+// "Add this reference ... when downloading": the button label says so, so it's clear even with the panel closed.
+function syncRefInclude() {
+  el.downloadLabel.textContent = el.refInclude.checked ? "Download grid + reference" : "Download grid";
+  store.set("refInclude", el.refInclude.checked);
+}
+el.refInclude.checked = store.get("refInclude", false) === true;
+el.refInclude.addEventListener("change", syncRefInclude);
+syncRefInclude();
+
 /* ====================================================================== init */
 const savedPhases = store.get("phases", null);
 if (Array.isArray(savedPhases) && savedPhases.length === COLS) state.phases = savedPhases.map(String);
+const savedOn = store.get("phaseOn", null);
+if (Array.isArray(savedOn) && savedOn.length === COLS && savedOn.some(Boolean)) state.phaseOn = savedOn.map(Boolean);
+state.active = nextEmptySlot(-1);
+renderPhaseToggle();
 buildBoard();

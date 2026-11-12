@@ -95,22 +95,39 @@
       <div class="card-head">
         <div>
           <h2>Board</h2>
-          <p class="muted"><span id="filledCount">0</span> of 10 frames · click a slot to fill it next</p>
+          <p class="muted"><span id="filledCount">0</span> of <span id="slotTotal">10</span> frames · click a slot to fill it next</p>
         </div>
         <div class="board-actions">
           <button class="btn btn-ghost" id="resetBtn">Reset</button>
           <button class="btn btn-primary" id="downloadBtn" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
-            Download grid
+            <span id="downloadLabel">Download grid</span>
           </button>
         </div>
       </div>
 
       <input class="title-input" id="boardTitle" placeholder="Grid title (optional) — e.g. Jordan · 60 m · 9 Nov" maxlength="80">
 
+      <div class="phase-toggle" role="group" aria-label="Phases to include">
+        <span class="phase-toggle-label">Phases</span>
+        <span id="phaseToggle"></span>
+      </div>
+
       <div class="board" id="board">
         <!-- phase label inputs + 10 slots are rendered by app.js -->
       </div>
+
+      <details class="reference" id="reference">
+        <summary>Reference kinogram</summary>
+        <div class="ref-toggle" role="group" aria-label="Which legs to show">
+          <button type="button" class="ref-btn" data-ref="both-legs" aria-pressed="true">Both legs</button>
+          <button type="button" class="ref-btn" data-ref="left-leg" aria-pressed="false" title="Phases starting from a left-leg toe-off">Left leg</button>
+          <button type="button" class="ref-btn" data-ref="right-leg" aria-pressed="false" title="Phases starting from a right-leg toe-off">Right leg</button>
+        </div>
+        <img id="refImg" src="reference/both-legs.webp" alt="Reference kinogram of an elite sprinter at toe-off, MVP, strike, touch-down and full-support, both legs" loading="lazy">
+        <p class="muted ref-caption">An example of good sprint mechanics at each phase. Compare it with your athlete's grid.</p>
+        <label class="ref-include"><input type="checkbox" id="refInclude"> Add this reference under the athlete's grid when downloading</label>
+      </details>
     </section>
   </main>
 
