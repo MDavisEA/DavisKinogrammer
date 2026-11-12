@@ -9,7 +9,7 @@ Project site: https://sites.google.com/view/sprintcropping/home
 ## How to use it
 
 1. **Open a video:** drag it onto the page or click **Upload video** (nothing is actually uploaded).
-2. **Find the frame** with the scrubber, the step buttons or the keyboard.
+2. **Find the frame** with the scrubber, the step buttons or the keyboard. Not sure what a phase looks like? **Phase guide** (top right) shows an example and a description of each one.
 3. **Pick the athlete.** The app outlines everyone it detects and chooses for you, using the largest person at first and then the one nearest where the athlete should be based on your earlier crops. Click a different box to switch, or drag your own box if detection misses them.
 4. **Add to board** (<kbd>Enter</kbd>). Each crop is placed in the highlighted slot. Click any slot to choose where the next crop goes, and click × on a filled slot to remove it.
 5. **Name the phases** by editing the column headers, and add an optional title.

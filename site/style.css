@@ -280,3 +280,26 @@ kbd {
 .phase-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--text); text-decoration: none; }
 .phase-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .board .off { display: none; }
+
+/* phase guide */
+.topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.guide { width: min(560px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); color: var(--text); padding: 18px 20px 20px; box-shadow: var(--shadow); }
+.guide::backdrop { background: rgba(0, 0, 0, 0.55); }
+.guide-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.guide-close { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; border: 0;
+  background: var(--surface-2); color: var(--text); cursor: pointer; }
+.guide-close:hover { background: var(--surface-3); }
+.guide-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.guide-tab { font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--muted); }
+.guide-tab:hover { color: var(--text); }
+.guide-tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.guide-fig { margin: 0; border-radius: 10px; overflow: hidden; background: #000; display: grid; place-items: center; }
+.guide-fig img { display: block; width: auto; max-width: 100%; height: min(42vh, 360px); object-fit: contain; }
+.guide-phase { margin: 14px 0 4px; font-size: 16px; }
+.guide-text { margin: 0 0 8px; }
+.guide-look { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+.guide-look b { color: var(--text); }
+.guide-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.guide-close:focus-visible, .guide-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

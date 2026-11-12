@@ -20,6 +20,10 @@
       </div>
     </div>
     <div class="topbar-actions">
+      <button type="button" class="btn btn-ghost" id="guideBtn" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 5v16M9 7h6"/></svg>
+        <span>Phase guide</span>
+      </button>
       <label class="btn btn-ghost" for="fileInput">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0l-5 5m5-5l5 5M4 20h16"/></svg>
         <span>Upload video</span>
@@ -124,7 +128,7 @@
           <button type="button" class="ref-btn" data-ref="left-leg" aria-pressed="false" title="Phases starting from a left-leg toe-off">Left leg</button>
           <button type="button" class="ref-btn" data-ref="right-leg" aria-pressed="false" title="Phases starting from a right-leg toe-off">Right leg</button>
         </div>
-        <img id="refImg" src="reference/both-legs.webp" alt="Reference kinogram of an elite sprinter at toe-off, MVP, strike, touch-down and full-support, both legs" loading="lazy">
+        <img id="refImg" src="reference/both-legs.webp" alt="Reference kinogram of an elite sprinter at toe-off, MVP, pre-strike, touch-down and full-support, both legs" loading="lazy">
         <p class="muted ref-caption">An example of good sprint mechanics at each phase. Compare it with your athlete's grid.</p>
         <label class="ref-include"><input type="checkbox" id="refInclude" checked> Add this reference under the athlete's grid when downloading</label>
       </details>
@@ -132,6 +136,26 @@
   </main>
 
   <footer class="foot">Everything runs in your browser. Your video is never uploaded or saved. Pose detection by YOLOv8 (AGPL-3.0) via ONNX Runtime Web.</footer>
+
+  <dialog class="guide" id="guideDialog" aria-labelledby="guideTitle">
+    <div class="guide-head">
+      <h2 id="guideTitle">Phase guide</h2>
+      <form method="dialog"><button class="guide-close" aria-label="Close phase guide">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></form>
+    </div>
+    <div class="guide-tabs" id="guideTabs" role="tablist" aria-label="Phases"></div>
+    <figure class="guide-fig">
+      <img id="guideImg" alt="" width="269" height="236">
+    </figure>
+    <h3 class="guide-phase" id="guidePhase"></h3>
+    <p class="guide-text" id="guideText"></p>
+    <p class="guide-look"><b>How to find it:</b> <span id="guideLook"></span></p>
+    <div class="guide-nav">
+      <button type="button" class="btn btn-ghost" id="guidePrev">&larr; Previous</button>
+      <span class="muted" id="guideCount"></span>
+      <button type="button" class="btn btn-primary" id="guideNext">Next &rarr;</button>
+    </div>
+  </dialog>
 
   <dialog class="help" id="helpDialog" aria-labelledby="helpTitle">
     <h2 id="helpTitle">Video won't open?</h2>

@@ -12,7 +12,7 @@ const SLOT_COUNT = 10;
 const COLS = 5;
 const TILE_ASPECT = 4 / 5;          // width / height of every board tile
 const CROP_PAD = 0.06;              // extra margin around the detected box (each side)
-const DEFAULT_PHASES = ["Toe off", "Max vert pos", "Strike", "Touch down", "Full support"];
+const DEFAULT_PHASES = ["Toe off", "Max vert pos", "Pre-strike", "Touch down", "Full support"];
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -764,6 +764,7 @@ el.downloadBtn.addEventListener("click", downloadGrid);
 /* ================================================================== keyboard */
 window.addEventListener("keydown", (e) => {
   const t = e.target;
+  if (document.querySelector("dialog[open]")) return; // the guide and help dialogs handle their own keys
   if (t.matches("input, textarea, select") || t.isContentEditable) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const step = e.shiftKey ? 10 : 1;
@@ -794,7 +795,7 @@ function showReference(key) {
   if (!REF_ALT[key]) key = "both-legs";
   refView = key;
   refImg.src = "reference/" + key + ".webp";
-  refImg.alt = "Reference kinogram of an elite sprinter at toe-off, MVP, strike, touch-down and full-support, " + REF_ALT[key];
+  refImg.alt = "Reference kinogram of an elite sprinter at toe-off, MVP, pre-strike, touch-down and full-support, " + REF_ALT[key];
   refBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.ref === key)));
   store.set("refView", key);
 }
@@ -813,9 +814,63 @@ el.refInclude.checked = store.get("refInclude", true) !== false;
 el.refInclude.addEventListener("change", syncRefInclude);
 syncRefInclude();
 
+/* ================================================================ phase guide */
+// What each phase looks like: an example frame plus a plain-language description. Arrow keys flip through.
+const GUIDE = [
+  { key: "toe-off", name: "Toe-off",
+    text: "The last moment the pushing foot is on the ground, right before it leaves the track.",
+    look: "Step forward until the back foot lifts off, then go back one frame." },
+  { key: "mvp", name: "Max vertical projection (MVP)",
+    text: "The athlete is in the air with both feet at the same height. The hips are at their highest point between steps.",
+    look: "Both feet off the ground and level with each other." },
+  { key: "pre-strike", name: "Pre-strike",
+    text: "The swinging front leg is at its straightest, just before the foot comes down. The back thigh points straight down.",
+    look: "Front knee at its most extended and the rear thigh vertical." },
+  { key: "touch-down", name: "Touch-down",
+    text: "The first moment the front foot touches the ground.",
+    look: "Step forward until the foot first makes contact with the track." },
+  { key: "full-support", name: "Full support",
+    text: "The hips are directly over the ankle of the foot on the ground.",
+    look: "An imaginary vertical line from the hip runs straight down through the ankle." },
+];
+const guide = {
+  dialog: $("guideDialog"), tabs: $("guideTabs"), img: $("guideImg"), phase: $("guidePhase"),
+  text: $("guideText"), look: $("guideLook"), count: $("guideCount"), prev: $("guidePrev"), next: $("guideNext"),
+  i: 0,
+};
+GUIDE.forEach((g, i) => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "guide-tab";
+  b.setAttribute("role", "tab");
+  b.textContent = g.name.replace(/ \(MVP\)$/, "").replace("Max vertical projection", "MVP");
+  b.addEventListener("click", () => showGuide(i));
+  guide.tabs.appendChild(b);
+});
+function showGuide(i) {
+  guide.i = (i + GUIDE.length) % GUIDE.length;
+  const g = GUIDE[guide.i];
+  guide.img.src = "guide/" + g.key + ".webp";
+  guide.img.alt = "Example of " + g.name + ": " + g.text;
+  guide.phase.textContent = g.name;
+  guide.text.textContent = g.text;
+  guide.look.textContent = g.look;
+  guide.count.textContent = (guide.i + 1) + " of " + GUIDE.length;
+  [...guide.tabs.children].forEach((b, k) => b.setAttribute("aria-selected", String(k === guide.i)));
+}
+$("guideBtn").addEventListener("click", () => { showGuide(guide.i); guide.dialog.showModal(); });
+guide.prev.addEventListener("click", () => showGuide(guide.i - 1));
+guide.next.addEventListener("click", () => showGuide(guide.i + 1));
+guide.dialog.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight") { e.preventDefault(); showGuide(guide.i + 1); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); showGuide(guide.i - 1); }
+});
+showGuide(0);
+
 /* ====================================================================== init */
 const savedPhases = store.get("phases", null);
 if (Array.isArray(savedPhases) && savedPhases.length === COLS) state.phases = savedPhases.map(String);
+if (state.phases[2] === "Strike") state.phases[2] = "Pre-strike"; // renamed; keep coaches' other custom names
 const savedOn = store.get("phaseOn", null);
 if (Array.isArray(savedOn) && savedOn.length === COLS && savedOn.some(Boolean)) state.phaseOn = savedOn.map(Boolean);
 state.active = nextEmptySlot(-1);
