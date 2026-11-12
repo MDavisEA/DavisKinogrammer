@@ -801,7 +801,7 @@ function showReference(key) {
 refBtns.forEach((b) => b.addEventListener("click", () => showReference(b.dataset.ref)));
 showReference(store.get("refView", "both-legs"));
 const refPanel = $("reference");
-refPanel.open = store.get("refOpen", false);
+refPanel.open = store.get("refOpen", true) !== false;
 refPanel.addEventListener("toggle", () => store.set("refOpen", refPanel.open));
 
 // "Add this reference ... when downloading": the button label says so, so it's clear even with the panel closed.
@@ -809,7 +809,7 @@ function syncRefInclude() {
   el.downloadLabel.textContent = el.refInclude.checked ? "Download grid + reference" : "Download grid";
   store.set("refInclude", el.refInclude.checked);
 }
-el.refInclude.checked = store.get("refInclude", false) === true;
+el.refInclude.checked = store.get("refInclude", true) !== false;
 el.refInclude.addEventListener("change", syncRefInclude);
 syncRefInclude();
 

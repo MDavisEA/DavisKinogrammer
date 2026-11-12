@@ -101,7 +101,7 @@
           <button class="btn btn-ghost" id="resetBtn">Reset</button>
           <button class="btn btn-primary" id="downloadBtn" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
-            <span id="downloadLabel">Download grid</span>
+            <span id="downloadLabel">Download grid + reference</span>
           </button>
         </div>
       </div>
@@ -117,7 +117,7 @@
         <!-- phase label inputs + 10 slots are rendered by app.js -->
       </div>
 
-      <details class="reference" id="reference">
+      <details class="reference" id="reference" open>
         <summary>Reference kinogram</summary>
         <div class="ref-toggle" role="group" aria-label="Which legs to show">
           <button type="button" class="ref-btn" data-ref="both-legs" aria-pressed="true">Both legs</button>
@@ -126,7 +126,7 @@
         </div>
         <img id="refImg" src="reference/both-legs.webp" alt="Reference kinogram of an elite sprinter at toe-off, MVP, strike, touch-down and full-support, both legs" loading="lazy">
         <p class="muted ref-caption">An example of good sprint mechanics at each phase. Compare it with your athlete's grid.</p>
-        <label class="ref-include"><input type="checkbox" id="refInclude"> Add this reference under the athlete's grid when downloading</label>
+        <label class="ref-include"><input type="checkbox" id="refInclude" checked> Add this reference under the athlete's grid when downloading</label>
       </details>
     </section>
   </main>
