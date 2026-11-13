@@ -115,6 +115,8 @@
       <div class="phase-toggle" role="group" aria-label="Phases to include">
         <span class="phase-toggle-label">Phases</span>
         <span id="phaseToggle"></span>
+        <button type="button" class="dir-btn" id="dirBtn" aria-pressed="false"
+          title="Which way the athlete runs. The board and download read in that direction.">Running left &rarr; right</button>
       </div>
 
       <div class="board" id="board">
@@ -136,6 +138,14 @@
   </main>
 
   <footer class="foot">Everything runs in your browser. Your video is never uploaded or saved. Pose detection by YOLOv8 (AGPL-3.0) via ONNX Runtime Web.</footer>
+
+  <dialog class="preview" id="previewDialog" aria-label="Frame preview">
+    <img id="previewImg" alt="">
+    <div class="preview-bar">
+      <p class="preview-cap" id="previewCap"></p>
+      <form method="dialog"><button class="btn btn-primary">Close</button></form>
+    </div>
+  </dialog>
 
   <dialog class="guide" id="guideDialog" aria-labelledby="guideTitle">
     <div class="guide-head">

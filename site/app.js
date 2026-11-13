@@ -25,7 +25,8 @@ const el = {
   addBtn: $("addBtn"), nextPersonBtn: $("nextPersonBtn"),
   board: $("board"), boardTitle: $("boardTitle"), filledCount: $("filledCount"),
   resetBtn: $("resetBtn"), downloadBtn: $("downloadBtn"), toast: $("toast"),
-  phaseToggle: $("phaseToggle"), slotTotal: $("slotTotal"),
+  phaseToggle: $("phaseToggle"), slotTotal: $("slotTotal"), dirBtn: $("dirBtn"),
+  previewDialog: $("previewDialog"), previewImg: $("previewImg"), previewCap: $("previewCap"),
   refInclude: $("refInclude"), downloadLabel: $("downloadLabel"),
   helpDialog: $("helpDialog"), helpLink: $("helpLink"), helpLead: $("helpLead"), helpDetail: $("helpDetail"),
 };
@@ -44,6 +45,8 @@ const state = {
   active: 0,              // slot the next crop goes into
   trail: [],              // recent crops [{frame, box}] used to predict the athlete's position
   phases: [...DEFAULT_PHASES],
+  rtl: false,              // athlete runs right to left: board and download read right to left
+  dirManual: false,        // coach picked the direction for this video, so don't auto-detect
   phaseOn: Array(COLS).fill(true), // which phase columns are on the board and in the download
 };
 
@@ -172,6 +175,7 @@ function loadVideo(v) {
   state.video = v;
   state.detections = new Map();
   state.trail = [];
+  state.dirManual = false;
   state.shownFrame = -1;
   state.loading = false;
   el.frameCanvas.width = v.width;
@@ -538,6 +542,7 @@ async function addToBoard() {
   state.slots[slot] = { src: cropFrame(box), frame: state.shownFrame };
   state.trail.push({ frame: state.shownFrame, box });
   if (state.trail.length > 4) state.trail.shift();
+  autoDirection();
   state.active = nextEmptySlot(slot);
   renderBoard();
 }
@@ -564,6 +569,20 @@ function removeCurrent() {
   for (let i = SLOT_COUNT - 1; i >= 0; i--) if (slotOn(i) && state.slots[i]) return removeSlot(i);
 }
 
+/* =================================================================== preview */
+function openPreview(i) {
+  const d = state.slots[i];
+  if (!d) return;
+  const phase = state.phases[i % COLS].trim() || "Phase " + (i % COLS + 1);
+  el.previewImg.src = d.src;
+  el.previewImg.alt = phase + ", frame " + d.frame;
+  el.previewCap.textContent = phase + " \u00b7 row " + (Math.floor(i / COLS) + 1) + " \u00b7 frame " + d.frame +
+    ". This slot is selected, so Add to board will replace it.";
+  el.previewDialog.showModal();
+}
+// click outside the picture (on the dimmed background) closes it
+el.previewDialog.addEventListener("click", (e) => { if (e.target === el.previewDialog) el.previewDialog.close(); });
+
 /* ====================================================================== board */
 function buildBoard() {
   el.board.innerHTML = "";
@@ -585,9 +604,10 @@ function buildBoard() {
     s.addEventListener("click", (e) => {
       if (e.target.closest(".remove")) return;
       state.active = i; renderBoard();
+      if (state.slots[i]) openPreview(i);
     });
     s.addEventListener("keydown", (e) => {
-      if (e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); state.active = i; renderBoard(); }
+      if (e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); state.active = i; renderBoard(); openPreview(i); }
     });
     el.board.appendChild(s);
   }
@@ -654,6 +674,24 @@ function togglePhase(j) {
   renderBoard();
 }
 
+// Direction of travel. Guessed from where the athlete moves between crops (needs a fixed camera);
+// the coach can always flip it, and then the guess stops for this video.
+function setDirection(rtl) {
+  state.rtl = rtl;
+  el.board.classList.toggle("rtl", rtl);
+  el.dirBtn.textContent = rtl ? "Running right \u2190 left" : "Running left \u2192 right";
+  el.dirBtn.setAttribute("aria-pressed", String(rtl));
+}
+function autoDirection() {
+  if (state.dirManual) return;
+  const t = [...state.trail].sort((a, b) => a.frame - b.frame);
+  if (t.length < 2 || t[0].frame === t[t.length - 1].frame) return;
+  const dx = centerX(t[t.length - 1].box) - centerX(t[0].box);
+  if (Math.abs(dx) > 0.03) setDirection(dx < 0);
+}
+el.dirBtn.addEventListener("click", () => { state.dirManual = true; setDirection(!state.rtl); });
+setDirection(false);
+
 el.resetBtn.addEventListener("click", () => {
   if (state.slots.some(Boolean) && !confirm("Clear all frames from the board?")) return;
   state.slots = Array(SLOT_COUNT).fill(null);
@@ -671,7 +709,7 @@ const loadImage = (src) => new Promise((res, rej) => { const i = new Image(); i.
 async function downloadGrid() {
   const TW = 600, TH = Math.round(TW / TILE_ASPECT), GAP = 10, PAD = 40;
   const title = el.boardTitle.value.trim();
-  const TITLE_H = title ? 64 : 0, LABEL_H = 54;
+  const TITLE_H = title ? 110 : 0, LABEL_H = 100;
   // Only the phases that are switched on, and only rows with at least one frame in them.
   const usedCols = [];
   for (let j = 0; j < COLS; j++) if (state.phaseOn[j]) usedCols.push(j);
@@ -680,6 +718,8 @@ async function downloadGrid() {
     if (usedCols.some((j) => state.slots[r * COLS + j])) usedRows.push(r);
   }
   const cols = usedCols.length, rows = Math.max(1, usedRows.length);
+  // Right-to-left runs: first phase on the right, so the sequence reads the way the athlete travels.
+  const colX = (k) => PAD + (state.rtl ? cols - 1 - k : k) * (TW + GAP);
   const W = PAD * 2 + cols * TW + (cols - 1) * GAP;
   const GRID_H = PAD + TITLE_H + LABEL_H + rows * TH + (rows - 1) * GAP;
   const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
@@ -690,7 +730,7 @@ async function downloadGrid() {
   if (el.refInclude.checked) {
     try {
       ref = await loadImage("reference/" + refView + ".webp");
-      REF_LABEL_H = 44;
+      REF_LABEL_H = 84;
       REF_H = Math.round(TW * ref.naturalHeight / (ref.naturalWidth / COLS));
     } catch (err) {
       toast("Couldn't load the reference picture, downloading the grid without it.", true);
@@ -707,21 +747,21 @@ async function downloadGrid() {
 
   if (title) {
     ctx.fillStyle = "#111418";
-    ctx.font = `700 36px ${FONT}`;
+    ctx.font = `700 64px ${FONT}`;
     ctx.textBaseline = "alphabetic";
-    ctx.fillText(title, PAD, PAD + 38, W - 2 * PAD);
+    ctx.fillText(title, PAD, PAD + 64, W - 2 * PAD);
   }
 
   const top = PAD + TITLE_H;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   usedCols.forEach((j, k) => {
-    const x = PAD + k * (TW + GAP);
+    const x = colX(k);
     ctx.fillStyle = "#111418";
-    ctx.font = `650 24px ${FONT}`;
-    ctx.fillText(state.phases[j] || "", x + TW / 2, top + LABEL_H / 2 - 6, TW - 16);
+    ctx.font = `700 48px ${FONT}`;
+    ctx.fillText(state.phases[j] || "", x + TW / 2, top + LABEL_H / 2 - 8, TW - 16);
     ctx.fillStyle = "#ff5a1f";
-    ctx.fillRect(x, top + LABEL_H - 10, TW, 4);
+    ctx.fillRect(x, top + LABEL_H - 14, TW, 6);
   });
   ctx.textAlign = "left";
 
@@ -729,7 +769,7 @@ async function downloadGrid() {
   imgs.forEach((img, i) => {
     const r = usedRows.indexOf(Math.floor(i / COLS)), k = usedCols.indexOf(i % COLS);
     if (!img || r < 0 || k < 0) return; // empty slots stay blank so the filled ones keep their phase column
-    const x = PAD + k * (TW + GAP), y = top + LABEL_H + r * (TH + GAP);
+    const x = colX(k), y = top + LABEL_H + r * (TH + GAP);
     ctx.drawImage(img, x, y, TW, TH);
   });
 
@@ -738,13 +778,13 @@ async function downloadGrid() {
     ctx.fillStyle = "#ff5a1f";
     ctx.fillRect(PAD, y - REF_GAP / 2, W - 2 * PAD, 2);
     ctx.fillStyle = "#111418";
-    ctx.font = `650 26px ${FONT}`;
+    ctx.font = `700 44px ${FONT}`;
     ctx.textBaseline = "alphabetic";
-    ctx.fillText("Reference: " + REF_ALT[refView], PAD, y + 28, W - 2 * PAD);
+    ctx.fillText("Reference: " + REF_ALT[refView], PAD, y + 50, W - 2 * PAD);
     ctx.imageSmoothingQuality = "high";
     const cw = ref.naturalWidth / COLS;
     usedCols.forEach((j, k) => {
-      ctx.drawImage(ref, j * cw, 0, cw, ref.naturalHeight, PAD + k * (TW + GAP), y + REF_LABEL_H, TW, REF_H);
+      ctx.drawImage(ref, j * cw, 0, cw, ref.naturalHeight, colX(k), y + REF_LABEL_H, TW, REF_H);
     });
   }
 
